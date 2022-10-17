@@ -315,10 +315,10 @@ class DiskMap:
 
                 count += 1
 
-        fit_radius = griddata(image_xy, r_im, grid, method="linear")
-        fit_azimuth = griddata(image_xy, p_im, grid, method="linear")
-        fit_opening = griddata(image_xy, o_im, grid, method="linear")
-        fit_scatter = griddata(image_xy, s_im, grid, method="linear")
+        fit_radius = griddata(image_xy, r_im, grid, method="cubic")
+        fit_azimuth = griddata(image_xy, p_im, grid, method="cubic")
+        fit_opening = griddata(image_xy, o_im, grid, method="cubic")
+        fit_scatter = griddata(image_xy, s_im, grid, method="cubic")
 
         self.radius = np.zeros((self.npix, self.npix))
         self.azimuth = np.zeros((self.npix, self.npix))
@@ -445,7 +445,7 @@ class DiskMap:
                 count += 1
 
         try:
-            fit_im = griddata(image_xy, im_disk, grid, method="linear")
+            fit_im = griddata(image_xy, im_disk, grid, method="cubic")
 
         except ValueError:
             raise RuntimeError(
