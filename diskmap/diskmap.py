@@ -15,7 +15,7 @@ from astropy.stats import sigma_clip
 from scipy.interpolate import griddata, interp1d
 from scipy.ndimage import gaussian_filter, median_filter
 from typeguard import typechecked
-
+import scipy
 
 class DiskMap:
     """
@@ -615,6 +615,44 @@ class DiskMap:
 
         alpha = np.cos(self.scatter)
         deg_pol = -pol_max * (alpha ** 2 - 1.0) / (alpha ** 2 + 1.0)
+
+        self.stokes_i = self.im_scaled / deg_pol
+        
+    @typechecked
+    def total_intensity_beta_distribution(self, pol_max: 1.0, a_beta: 3.0, b_beta: 3.0) -> None:
+        """
+        Function for estimating the (stellar irradiation corrected)
+        total intensity image when ``fitsfile`` contains a polarized
+        light image and ``image_type='polarized'``. A beta-distribution-shaped
+        degree of polarized is assumed and effects of multiple
+        scattering are ignored.
+
+        Parameters
+        ----------
+        pol_max : float
+            The peak of the bell-shaped degree of polarization, which
+            effectively normalizes the estimated total intensity image.
+        a_beta, b_beta : float numbers each > 1
+            The Beta distribution parameters
+
+        Returns
+        -------
+        NoneType
+            None
+        """
+
+        if self.image_type != "polarized":
+            raise ValueError(
+                "The 'total_intensity' method should only be "
+                "used if the input image is a polarized light "
+                "image (i.e. image_type='polarized')."
+            )
+
+        if self.scatter is None or self.im_scaled is None:
+            raise ValueError("Please run 'map_disk' before using 'total_intensity'.")
+
+        angles_radian = self.scatter
+        deg_pol = pol_max * scipy.stats.beta.pdf(angles_radian/np.pi, a_beta, b_beta) / scipy.stats.beta.pdf((a_beta-1)/(a_beta+b_beta-2), a_beta, b_beta)
 
         self.stokes_i = self.im_scaled / deg_pol
 
