@@ -5,7 +5,7 @@ Module with mapping functionalities for protoplanetary disks.
 import math
 import warnings
 
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Callable
 
 import numpy as np
 import numpy.ma as ma
@@ -89,6 +89,17 @@ class DiskMap:
 
         if self.image.shape[0] != self.image.shape[1]:
             raise ValueError("The dimensions of the image should have the same size.")
+        
+        if self.image.dtype == np.float32 or self.image.dtype == np.dtype('>f4'):
+            warnings.warn(
+                "The FITS file data is of type float32, this will be converted to float64"
+            )
+            self.image = self.image.astype(np.float64)
+            
+        if self.image.dtype != np.float64 and self.image.dtype != np.dtype('>f8'):
+            raise ValueError(
+                f"The FITS file data should be either of type float32 or float64"
+            )
 
         if image_type not in ["polarized", "total"]:
             raise ValueError(
@@ -135,6 +146,7 @@ class DiskMap:
         power_law: Tuple[float, float, float],
         radius: Tuple[float, float, int] = (1.0, 500.0, 100),
         surface: str = "power-law",
+        height_func: Optional[Callable[[np.ndarray],np.ndarray]] = None,
         filename: Optional[str] = None,
     ) -> None:
         """
@@ -162,7 +174,11 @@ class DiskMap:
             present, have a look at the `_radius.fits` output.
         surface : str
             Parameterization type for the disk surface ('power-law' or
-            'file').
+            'function' or 'file').
+        height_func : callable, None
+            Function that returns the height of the scattering surface
+            as a function of radius. The radii and returned height must
+            be in au. Only used if surface='function'.
         filename : str, None
             Filename which contains the radius in au (first column) and
             the height of the disk surface in au (second column).
@@ -191,6 +207,20 @@ class DiskMap:
             disk_height = power_law_height(
                 disk_radius, power_law[0], power_law[1], power_law[2]
             )
+
+            # opening angle (rad)
+            disk_opening = np.arctan2(disk_height, disk_radius)
+            
+        elif surface == "function":
+            
+            if height_func is None:
+                raise ValueError("If using surface=='function', you must specify height_func")
+            
+            # midplane radius (au)
+            disk_radius = np.linspace(radius[0], radius[1], radius[2])
+
+            # disk height (au)
+            disk_height = height_func(disk_radius)
 
             # opening angle (rad)
             disk_opening = np.arctan2(disk_height, disk_radius)
@@ -583,7 +613,7 @@ class DiskMap:
                         self.im_scaled[i, j] = mask_planet[3] * self.image[i, j]
 
     @typechecked
-    def total_intensity(self, pol_max: 1.0) -> None:
+    def total_intensity(self, pol_max: float = 1.0) -> None:
         """
         Function for estimating the (stellar irradiation corrected)
         total intensity image when ``fitsfile`` contains a polarized
